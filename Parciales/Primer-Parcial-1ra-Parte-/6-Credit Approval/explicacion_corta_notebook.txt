@@ -1,0 +1,27 @@
+Resumen corto del notebook Credit_Approval.ipynb
+
+1) Carga y exploracion:
+Se carga el dataset UCI Credit Approval, se revisan dimensiones, tipos, faltantes y distribucion de la clase objetivo.
+
+2) Limpieza y preparacion:
+Se convierten columnas numericas, se imputan faltantes (mediana/moda) y se transforma el target A16 a binario (+:1, -:0).
+
+3) Codificacion:
+Las variables categoricas se convierten con get_dummies para poder entrenar un modelo numerico.
+
+4) Split manual 75/25:
+Se separa el dataset de forma manual en 75% entrenamiento y 25% prueba.
+
+5) Escalamiento:
+Se normalizan las features con Z-score usando solo el set de entrenamiento.
+
+6) Modelo:
+Se implementa regresion logistica manual con funcion sigmoide, costo log-loss y descenso por gradiente.
+Tambien se prueba optimizacion con scipy.optimize.
+
+7) Evaluacion:
+Se calculan predicciones en train/test y metricas: accuracy, precision, recall y F1.
+Se muestra ademas una interpretacion final orientada al contexto clinico.
+
+Nota:
+Para evitar errores por orden de ejecucion, corre las celdas de arriba hacia abajo despues de reiniciar kernel.

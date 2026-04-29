@@ -1,0 +1,11 @@
+En este trabajo se realizo la Regresion Lineal para Predecir la demanda de bicicletas
+usamos preposeacimiento como One-hot
+Columna	¿Por qué usar One-Hot?
+season	Los números 1, 2, 3, 4 son etiquetas (Primavera, Verano...). Un modelo podría pensar erróneamente que el "4" es más importante o "mayor" que el "1", cuando solo son estaciones diferentes.
+weathersit	Representa el clima (1: Despejado, 2: Niebla, 3: Lluvia). El One-Hot ayuda a separar el efecto de la lluvia del efecto de un día soleado.
+weekday	Transforma el día de la semana (0-6) en columnas independientes para que el modelo aprenda, por ejemplo, que los domingos se alquilan menos bicis que los lunes.
+mnth	Los meses (1-12) también se benefician de esto para capturar la estacionalidad de forma más precisa
+
+Usamos Encoder para usar el oneHot de sklearn
+
+Usamos las Funciones de Costo y Descencion del Gradiente, como tambien usamos la funcion de r2_score para saber el error medio cuadrado
