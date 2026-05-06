@@ -31,3 +31,6 @@ Thumbs.db
 
 # Project folders to exclude
 02/
+archive (5)/
+*.csv
+*.npz
