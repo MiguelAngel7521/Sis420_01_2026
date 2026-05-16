@@ -34,3 +34,4 @@ Thumbs.db
 archive (5)/
 *.csv
 *.npz
+*.npy
