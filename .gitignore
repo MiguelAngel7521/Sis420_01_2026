@@ -34,4 +34,7 @@ Thumbs.db
 archive (5)/
 *.csv
 *.npz
-*.npy
+
+# Lab7 heavy artifacts
+Laboratorios/Lab7/*.npy
+Laboratorios/Lab7/archive/
