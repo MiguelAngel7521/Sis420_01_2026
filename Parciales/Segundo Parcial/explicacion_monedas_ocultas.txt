@@ -1,0 +1,326 @@
+Problema:
+Un agente debe encontrar monedas escondidas en un tablero de 5x5 casillas.
+Cada casilla tiene una probabilidad fija (pero desconocida para el agente)
+de contener una moneda. El agente no sabe dónde están las monedas, así que
+debe balancear dos estrategias:
+
+  - EXPLORACION: probar casillas nuevas para descubrir monedas
+  - EXPLOTACION: cavar en casillas donde ya encontró monedas antes
+
+El objetivo es maximizar la cantidad de monedas encontradas.
+
+
+=============================================================================
+ 2. ESTADOS
+=============================================================================
+
+Definicion: Un estado representa una situacion especifica en la que el
+agente puede encontrarse.
+
+En este problema:
+  - Cada CASILLA del tablero es un ESTADO.
+  - Hay 25 estados (casilla 0, casilla 1, ..., casilla 24).
+  - El agente "esta" en el sentido de que elige una casilla para cavar.
+  - Cada estado tiene su propia distribucion de recompensa (probabilidad
+    de tener moneda).
+
+Ejemplo:
+  - Estado 0: casilla en fila 0, columna 0
+  - Estado 12: casilla en fila 2, columna 2
+  - Estado 24: casilla en fila 4, columna 4
+
+Diferenciacion de estados: cada casilla es independiente. Saber que hay
+moneda en la casilla 5 no da informacion sobre la casilla 6.
+
+Codigo:
+  NUM_CASILLAS = 25
+  probabilidades_reales[c] = probabilidad de que la casilla c tenga moneda
+
+
+=============================================================================
+ 3. ENTORNO
+=============================================================================
+
+Definicion: El entorno es todo aquello con lo que el agente interactua.
+
+En este problema:
+  - El entorno es el TABLERO de 5x5 con monedas ocultas.
+  - El tablero tiene 25 casillas, cada una con una probabilidad real p_i.
+  - Cuando el agente "cava" en una casilla, el entorno devuelve:
+      +1 si hay moneda (con probabilidad p_i)
+       0 si no hay moneda (con probabilidad 1 - p_i)
+  - Las probabilidades p_i son FIJAS pero DESCONOCIDAS para el agente.
+  - El agente solo descubre el resultado despues de cavar.
+
+Codigo:
+  probabilidades_reales = np.random.uniform(0, 0.5, NUM_CASILLAS)
+  # Cada casilla tiene probabilidad entre 0% y 50% de tener moneda
+
+  La mejor casilla es la de mayor probabilidad:
+  mejor_casilla = np.argmax(probabilidades_reales)
+
+
+=============================================================================
+ 4. ACCIONES
+=============================================================================
+
+Definicion: Una accion es algo que el agente puede hacer para afectar
+el entorno.
+
+En este problema:
+  - La unica accion disponible es: "CAVAR en una casilla".
+  - Hay 25 acciones posibles (una por cada casilla).
+  - En cada turno, el agente elige UNA casilla para cavar.
+
+Accion optima: cavar en la casilla con mayor probabilidad real de
+tener moneda (pero el agente no sabe cual es).
+
+
+=============================================================================
+ 5. POLITICA
+=============================================================================
+
+Definicion: La politica es la estrategia que usa el agente para decidir
+que accion tomar en cada estado. Mapea estados -> acciones.
+
+En este notebook se implementan TRES politicas diferentes:
+
+  5.1. POLITICA ε-GREEDY
+  ------------------------
+  - Con probabilidad ε (epsilon): elegir una casilla al AZAR (explorar)
+  - Con probabilidad 1-ε: elegir la casilla con MAYOR valor Q (explotar)
+
+  Pseudocodigo:
+    if random() < epsilon:
+        casilla = elegir_al_azar()
+    else:
+        casilla = argmax(Q)
+
+  ε controla el balance exploracion/explotacion:
+    ε = 0  -> siempre explota (nunca explora)
+    ε = 0.1 -> 10% explora, 90% explota
+    ε = 0.2 -> 20% explora, 80% explota
+
+  El notebook prueba: ε = [0, 0.05, 0.1, 0.2]
+
+  5.2. POLITICA UCB (Upper Confidence Bound)
+  -------------------------------------------
+  Formula:
+      A_t = argmax [ Q(a) + c * sqrt( ln(t) / N(a) ) ]
+
+  Donde:
+    - Q(a)  = valor estimado de la casilla a (explotacion)
+    - c     = constante que controla cuanta exploracion hacer
+    - ln(t) = logaritmo natural del turno actual
+    - N(a)  = numero de veces que se ha cavado en la casilla a
+
+  Explicacion:
+    - Si N(a) es pequeño (pocas visitas): la bonificacion es GRANDE
+      -> el agente EXPLORA esa casilla
+    - Si N(a) es grande (muchas visitas): la bonificacion es PEQUENA
+      -> el agente EXPLOTA lo que sabe de esa casilla
+    - Las casillas NUNCA visitadas reciben valor infinito
+      -> el agente las prueba al menos una vez
+
+  Diferencias con ε-greedy:
+    - ε-greedy explora AL AZAR (puede explorar malas casillas repetido)
+    - UCB explora de forma INTELIGENTE (prioriza alta incertidumbre)
+    - UCB no necesita epsilon, usa el termino sqrt(ln(t)/N) en su lugar
+
+  El notebook prueba: c = [0.5, 1.0, 2.0]
+
+  5.3. POLITICA DE GRADIENTE (SOFTMAX)
+  --------------------------------------
+  En lugar de estimar valores Q, asigna PREFERENCIAS H(a) a cada accion.
+
+  Las preferencias se convierten a probabilidades usando SOFTMAX:
+      pi(a) = exp(H(a)) / sum(exp(H(b)))
+
+  Donde pi(a) es la probabilidad de elegir la casilla a.
+
+  Actualizacion de preferencias (gradiente):
+    Si se eligio la accion a:
+        H(a) += alpha * (R - R_prom) * (1 - pi(a))
+    Para toda accion b != a:
+        H(b) -= alpha * (R - R_prom) * pi(b)
+
+  Donde:
+    - alpha  = tasa de aprendizaje
+    - R      = recompensa obtenida (1 o 0)
+    - R_prom = promedio historico de todas las recompensas
+    - pi(a)  = probabilidad de elegir la accion a
+
+  Explicacion:
+    - Si R > R_prom (la recompensa fue mejor que el promedio):
+        -> AUMENTA la preferencia de la accion elegida
+        -> DISMINUYE la preferencia de las demas
+    - Si R < R_prom (la recompensa fue peor que el promedio):
+        -> DISMINUYE la preferencia de la accion elegida
+        -> AUMENTA la preferencia de las demas
+    - Con el tiempo, las buenas acciones se vuelven mas probables
+
+  El notebook prueba: alpha = [0.05, 0.1, 0.3]
+
+
+=============================================================================
+ 6. RECOMPENSA
+=============================================================================
+
+Definicion: La recompensa es la senal numerica que el entorno envia al
+agente para indicarle que tan bien lo esta haciendo.
+
+En este problema:
+  - R = +1 si HAY moneda en la casilla donde cavo
+  - R = 0 si NO HAY moneda
+
+  La recompensa es INMEDIATA (se recibe justo despues de cavar).
+
+  Objetivo del agente: MAXIMIZAR la recompensa acumulada a lo largo
+  del tiempo (encontrar la mayor cantidad de monedas posible).
+
+  Nota: Como las probabilidades son FIJAS, la maxima recompensa esperada
+  a largo plazo se obtiene cavando SIEMPRE en la mejor casilla.
+
+
+=============================================================================
+ 7. FUNCION DE VALOR (Q)
+=============================================================================
+
+Definicion: La funcion de valor Q(a) estima la recompensa esperada de
+tomar la accion a (cavar en la casilla a).
+
+  Q(a) = estimacion de la probabilidad de encontrar moneda en casilla a
+
+Inicializacion:
+  - Todas las Q(a) comienzan en 0 (el agente no sabe nada).
+
+Actualizacion (promedio incremental):
+  Q(a) = Q(a) + (1/N(a)) * (R - Q(a))
+
+  Donde:
+    - Q(a)  = valor actual estimado de la casilla a
+    - N(a)  = numero de veces que se ha cavado en la casilla a
+    - R     = recompensa obtenida (1 o 0)
+
+  Esto es equivalente a hacer el promedio:
+    Q(a) = (suma de recompensas en casilla a) / N(a)
+
+  Con suficientes muestras, Q(a) converge a la probabilidad real p_i.
+
+Ejemplo:
+  Si se cava 10 veces en la casilla 5 y se obtienen 7 monedas:
+    Q(5) = 7/10 = 0.7 (estimacion de probabilidad)
+
+
+=============================================================================
+ 8. ESTRUCTURA DEL EXPERIMENTO (for anidados)
+=============================================================================
+
+Siguiendo la logica del notebook 02_bandits.ipynb, la estructura
+para comparar metodos usa TRES bucles for anidados:
+
+  for partida in range(partidas):         # (1) EXPERIMENTOS INDEPENDIENTES
+      for i, metodo in enumerate(metodos): # (2) COMPARAR METODOS
+          for turno in range(turnos):      # (3) TURNOS DENTRO DE CADA UNO
+              # Elegir accion segun el metodo
+              # Cavar y obtener recompensa
+              # Actualizar Q
+
+  for partida in range(partidas):
+      - Cada "partida" es un entrenamiento COMPLETAMENTE NUEVO.
+      - Se reinician Q, N, H desde cero.
+      - Esto permite medir el comportamiento PROMEDIO del metodo
+        (elimina el efecto de la aleatoriedad inicial).
+      - En el notebook: partidas = 500
+
+  for i, metodo in enumerate(metodos):
+      - Para cada valor de epsilon (o c, o alpha) se ejecuta
+        una secuencia completa de turnos.
+      - Todos usan las MISMAS condiciones iniciales (mismo tablero).
+
+  for turno in range(turnos):
+      - Cada turno = una cavada en una casilla.
+      - Se repite 200 veces por cada configuracion.
+      - En cada turno: elegir casilla -> cavar -> actualizar Q
+
+Resultados:
+  - Se guarda la RECOMPENSA PROMEDIO por turno (promediada sobre las 500
+    partidas)
+  - Se guarda la PROPORCION DE ACCION OPTIMA (eligio la mejor casilla?)
+  - Al final se dividen los acumulados entre el numero de partidas.
+
+
+=============================================================================
+ 9. GRAFICAS Y ANALISIS
+=============================================================================
+
+Cada experimento genera dos graficas:
+
+  GRAFICA 1: Recompensa promedio por turno
+  - Eje X: numero de turnos (cavadas)
+  - Eje Y: recompensa promedio (entre 0 y 1)
+  - Interpretacion:
+      * Curva mas alta = mejor rendimiento
+      * Curva que sube = el agente esta aprendiendo
+      * Curva plana = el agente se estanco
+
+  GRAFICA 2: Proporcion de accion optima
+  - Eje X: numero de turnos
+  - Eje Y: frecuencia con la que eligio la mejor casilla
+  - Interpretacion:
+      * 1.0 = siempre elige la mejor casilla
+      * 0.2 = solo elige la mejor casilla 20% de las veces
+      * Sube con el tiempo si el metodo aprende bien
+
+  GRAFICA FINAL (COMPARACION):
+  - Compara los tres metodos lado a lado con sus mejores parametros
+  - ε-greedy (ε=0.1) vs UCB (c=1.0) vs Gradiente (alpha=0.1)
+
+
+=============================================================================
+ 10. RESUMEN DE RESULTADOS
+=============================================================================
+
+  Metodo        | Como explora              | Como explota
+  --------------+---------------------------+-------------------------------
+  ε-greedy      | Al azar con prob ε        | Elige la de mayor Q
+  UCB           | Bonif. c*sqrt(ln(t)/N)    | Q + bonif (si N es grande)
+  Gradiente     | Softmax sobre preferencias| Preferencias altas = mas prob
+
+  - ε=0 (greedy puro) se estanca, nunca descubre mejores casillas
+  - ε=0.05 o 0.1 dan buen balance exploracion/explotacion
+  - UCB con c=1.0 explora mejor que ε-greedy (mas inteligente)
+  - Gradiente con alpha=0.1 converge naturalmente
+  - UCB y Gradiente superan a ε-greedy porque no desperdician
+    exploracion en malas casillas
+
+
+=============================================================================
+ 11. EXPLICACION DE LOS COMPONENTES RL (TABLA)
+=============================================================================
+
+  Componente      | Descripcion
+  ----------------+--------------------------------------------------------
+  ESTADO          | Identidad de la casilla (0 a 24). Cada casilla tiene
+                  | su propia distribucion de recompensa independiente.
+  -----------------+-------------------------------------------------------
+  ENTORNO         | Tablero 5x5 con 25 casillas. Cada casilla tiene una
+                  | probabilidad fija p_i de contener una moneda.
+  -----------------+-------------------------------------------------------
+  ACCION          | Cavar en una casilla especifica. Hay 25 acciones.
+  -----------------+-------------------------------------------------------
+  POLITICA        | ε-greedy, UCB o Gradiente: determina que casilla
+                  | cavar basandose en Q(a) y el historial de visitas.
+  -----------------+-------------------------------------------------------
+  RECOMPENSA      | R = 1 si hay moneda (con probabilidad p_i),
+                  | R = 0 si no hay moneda.
+  -----------------+-------------------------------------------------------
+  FUNCION DE VALOR| Q(a) = valor estimado de la casilla a. Es la
+                  | proporcion de veces que cavar en a dio moneda.
+  -----------------+-------------------------------------------------------
+  EXPLORACION     | Probar casillas nuevas o con alta incertidumbre para
+                  | descubrir mejores opciones.
+  -----------------+-------------------------------------------------------
+  EXPLOTACION     | Usar el conocimiento actual para maximizar la
+                  | recompensa inmediata (elegir la mejor casilla conocida).
+  -----------------+-------------------------------------------------------
