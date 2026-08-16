@@ -1,0 +1,95 @@
+Este entorno forma parte de los entornos Toy Text, que contiene información general sobre el entorno.
+
+Espacio de acción
+
+Discrete(2)
+
+Espacio de observación
+
+Tuple(Discrete(32), Discrete(11), Discrete(2))
+
+Importación
+
+gymnasium.make("Blackjack-v1")
+
+El blackjack es un juego de cartas cuyo objetivo es vencer al crupier obteniendo cartas Eso suma más cerca de 21 (sin pasar de 21) que las cartas del crupier.
+
+Descripción
+El juego comienza con el repartidor teniendo una carta boca arriba y otra boca abajo, mientras que el jugador tiene dos cartas boca arriba. Todas las cartas se roban de una baraja infinita (es decir, con reemplazo).
+
+Los valores de las cartas son:
+
+Las figuras (Jota, Reina, Rey) tienen un valor de 10 puntos.
+
+Los ases pueden contar como 11 (llamado 'as utilizable') o como 1.
+
+Las cartas numéricas (2-10) tienen un valor igual a su número.
+
+El jugador tiene la suma de cartas que posee. El jugador puede solicitar cartas adicionales (golpe) hasta que decidan parar (quedarse) o superar 21 (romper, pérdida inmediata).
+
+Después de que el jugador se quede, el repartidor revela su carta boca abajo y roba cartas hasta que su suma sea 17 o más. Si el repartidor quebra, el jugador gana.
+
+Si ni el jugador ni el repartidor hacen un bust, el resultado (ganar, perder, empatar) es decidido por cuya suma se acerca a 21.
+
+Este entorno corresponde a la versión del problema del blackjack descrito en el Ejemplo 5.1 de Aprendizaje por Refuerzo: Una Introducción por Sutton y Barto [1].
+
+Espacio de acción
+La forma de acción está en el rango que indica si pegar o pegar.(1,){0, 1}
+
+0: Palo
+
+1: Golpe
+
+Espacio de observación
+La observación consiste en una 3-tupla que contiene: la suma actual del jugador, el valor de la carta que muestra el repartidor (del 1 al 10 donde 1 es as), y si el jugador tiene un as utilizable (0 o 1).
+
+La observación se devuelve como .(int(), int(), int())
+
+Estado de inicio
+El estado inicial se inicializa con los siguientes valores.
+
+Observación
+
+Valores
+
+Suma de corrientes de jugadores
+
+4, 5, …, 21
+
+El repartidor muestra el valor de la carta
+
+1, 2, …, 10
+
+As utilizable
+
+0, 1
+
+Recompensas
+Juego de victoria: +1
+
+Derrota partida: -1
+
+Empate partido: 0
+
+Ganar el juego con blackjack natural: +1,5 (si natural es verdadero) +1 (si natural es Falso)
+
+Fin del episodio
+El episodio termina si ocurre lo siguiente:
+
+Terminación:
+
+El jugador golpea y la suma de la mano supera 21.
+
+El jugador se queda.
+
+Un as siempre se contará como utilizable (11) a menos que rompa al jugador.
+
+Información
+No se devuelve información adicional.
+
+Argumentos
+import gymnasium as gym
+gym.make('Blackjack-v1', natural=False, sab=False)
+natural=False: Si dar una recompensa adicional por Empezando con un blackjack natural, es decir, empezando con un as y un diez (la suma es 21).
+
+sab=False: Si seguir exactamente las reglas descritas en el libro por Sutton y Barto. Si es , el argumento de la palabra clave será ignorado. Si el jugador logra un blackjack natural y el crupier no, el jugador ganará (es decir, recibe una recompensa de +1). La regla inversa no se aplica. Si tanto el jugador como el repartidor obtienen un natural, será un empate (es decir, recompensa 0).sabTruenatural

@@ -1,0 +1,7 @@
+flask>=2.0
+numpy>=1.21
+matplotlib>=3.4
+tqdm>=4.62
+scikit-learn>=1.0
+opencv-python>=4.7
+ultralytics>=8.0

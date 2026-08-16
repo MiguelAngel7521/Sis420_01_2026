@@ -1,0 +1,20 @@
+COLOCA AQUI TUS ARCHIVOS SUMO DE SUCRE:
+===========================================
+
+Paso 1: Genera los archivos con osmWebWizard.py
+   python "%SUMO_HOME%/tools/osmWebWizard.py"
+   - Selecciona Sucre, Bolivia en el mapa
+   - Genera el escenario
+
+Paso 2: Copia los archivos generados a esta carpeta
+   - Copia el .net.xml como "sucre.net.xml"
+   - Copia el .rou.xml como "sucre.rou.xml"
+   - Copia el .sumocfg como "sucre.sumocfg"
+
+Paso 3: Entrena el modelo
+   python -m entrenamiento.entrenar_dqn
+
+Paso 4: Prueba el modelo
+   python -m prediccion.predecir --modo modelo
+
+Listo!

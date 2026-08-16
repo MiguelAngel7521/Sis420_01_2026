@@ -1,0 +1,566 @@
+=== CELDA 0 (markdown) ===
+# Juego de Monedas Ocultas
+
+**Problema:** Un agente debe encontrar monedas escondidas en un tablero. No sabe dónde están las monedas, así que debe **explorar** nuevas casillas para descubrirlas, pero también **explotar** las casillas donde antes encontró monedas para maximizar su recompensa.
+
+**Elementos de Aprendizaje por Refuerzo:**
+
+| Elemento | Descripción |
+|---|---|
+| **Estado** | La posición actual del agente en el tablero (fila, columna). Cada casilla es un estado diferente. |
+| **Entorno** | Tablero de N×N con monedas ocultas. Cada casilla tiene una probabilidad fija de contener una moneda. |
+| **Acción** | Elegir una casilla del tablero para "cavar" y ver si hay moneda. |
+| **Política** | Estrategia para elegir qué casilla cavar. Usaremos **UCB** (Upper Confidence Bound) y **Gradiente Softmax**. |
+| **Recompensa** | +1 si hay moneda en la casilla, 0 si no hay. |
+| **Función de valor** | Q(casilla) = valor estimado de la casilla (qué tan probable es que tenga moneda). |
+
+Usamos la misma lógica que `02_bandits.ipynb`: cada casilla es como un "topo" con una recompensa probabilística. El agente aprende qué casillas son mejores mediante prueba y error.
+
+=== CELDA 1 (markdown) ===
+## 1. Importaciones y configuración
+
+=== CELDA 2 (code) ===
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+
+np.random.seed(42)
+
+=== CELDA 3 (markdown) ===
+## 2. Definición del problema
+
+Creamos un tablero de 5×5 = 25 casillas. Cada casilla tiene una **probabilidad real** (desconocida para el agente) de tener una moneda. El agente solo descubre si hay moneda cuando **cava** en esa casilla.
+
+La **mejor casilla** es la que tiene la mayor probabilidad de tener moneda.
+
+=== CELDA 4 (code) ===
+# --- CONFIGURACION DEL TABLERO ---
+TAMANO = 5                     # tablero de 5x5
+NUM_CASILLAS = TAMANO * TAMANO  # 25 casillas en total
+
+# Cada casilla tiene una probabilidad REAL (fija, pero desconocida para el agente)
+# de contener una moneda. Las generamos al azar entre 0 y 0.5.
+probabilidades_reales = np.random.uniform(0, 0.5, NUM_CASILLAS)
+
+# La mejor casilla es la que tiene mayor probabilidad de tener moneda
+mejor_casilla = np.argmax(probabilidades_reales)
+
+print("=== TABLERO DE MONEDAS OCULTAS ===")
+print(f"Dimension: {TAMANO}x{TAMANO} = {NUM_CASILLAS} casillas")
+print(f"\nProbabilidades reales de cada casilla (desconocidas para el agente):")
+for i in range(TAMANO):
+    fila = probabilidades_reales[i*TAMANO:(i+1)*TAMANO]
+    print(f"  Fila {i}: {[f'{p:.2f}' for p in fila]}")
+print(f"\nMejor casilla: fila {mejor_casilla//TAMANO}, columna {mejor_casilla%TAMANO} (probabilidad = {probabilidades_reales[mejor_casilla]:.3f})")
+
+=== CELDA 5 (markdown) ===
+## 3. Experimento 1: ε-greedy (referencia básica)
+
+Primero implementamos el método ε-greedy como referencia. La estructura sigue exactamente el notebook `02_bandits.ipynb`:
+
+```
+for partida in range(partidas):
+    for metodo in metodos:
+        for turno in range(turnos):
+            # elegir accion
+            # obtener recompensa
+            # actualizar Q
+```
+
+**Explicación:**
+- **Exploración**: con probabilidad ε, el agente cava en una casilla al azar (nueva o conocida)
+- **Explotación**: con probabilidad 1-ε, el agente cava en la casilla con mayor valor Q conocido
+- **Actualización**: promedio incremental $Q(a) = Q(a) + \frac{1}{N(a)}(R - Q(a))$
+
+=== CELDA 6 (code) ===
+# Parametros del experimento
+partidas = 500       # numero de juegos independientes (como en 02_bandits)
+turnos = 200         # numero de cavadas por juego
+epsilons = [0, 0.05, 0.1, 0.2]  # valores de epsilon a comparar
+
+# Matrices para guardar resultados
+# recompensas_acum[i][t] = recompensa promedio en el turno t con el epsilon i
+# acciones_optimas[i][t] = proporcion de veces que se eligio la mejor casilla
+recompensas_acum = np.zeros((len(epsilons), turnos))
+optimas_acum = np.zeros((len(epsilons), turnos))
+
+# --- BUCLE PRINCIPAL: exactamente como en 02_bandits ---
+for partida in range(partidas):
+    # Para cada valor de epsilon, ejecutamos una partida completa
+    for i, eps in enumerate(epsilons):
+        # Inicializamos los valores Q y contadores de visitas para cada casilla
+        # Q[casilla] = valor estimado de esa casilla
+        # N[casilla] = cuantas veces hemos cavado en esa casilla
+        Q = {k: 0 for k in range(NUM_CASILLAS)}
+        N = {k: 0 for k in range(NUM_CASILLAS)}
+
+        for turno in range(turnos):
+            # --- PASO 1: SELECCIONAR ACCION (ELEGIR CASILLA) ---
+            if np.random.uniform(0, 1) < eps:
+                # EXPLORACION: elegir una casilla al azar
+                # Esto permite descubrir nuevas casillas con posibles monedas
+                casilla = np.random.randint(NUM_CASILLAS)
+            else:
+                # EXPLOTACION: elegir la casilla con mayor valor Q
+                # Esto maximiza la recompensa inmediata basada en experiencia previa
+                max_q = -1e9
+                for j in range(NUM_CASILLAS):
+                    if Q[j] > max_q:
+                        max_q = Q[j]
+                        casilla = j
+
+            # --- PASO 2: OBTENER RECOMPENSA (CAVAR EN LA CASILLA) ---
+            N[casilla] += 1
+            # Hay moneda con probabilidad = probabilidad_real de esa casilla
+            recompensa = 1 if np.random.uniform() < probabilidades_reales[casilla] else 0
+
+            # --- PASO 3: ACTUALIZAR VALOR Q (PROMEDIO INCREMENTAL) ---
+            # Formula: Q_nuevo = Q_viejo + (1/n) * (recompensa - Q_viejo)
+            Q[casilla] += (recompensa - Q[casilla]) / N[casilla]
+
+            # --- PASO 4: GUARDAR RESULTADOS ---
+            recompensas_acum[i][turno] += recompensa
+            optimas_acum[i][turno] += (1 if casilla == mejor_casilla else 0)
+
+# Promediamos sobre todas las partidas para obtener el comportamiento esperado
+recompensas_acum /= partidas
+optimas_acum /= partidas
+
+print("Experimento ε-greedy completado.")
+
+=== CELDA 7 (markdown) ===
+### 3.1 Gráfica de resultados ε-greedy
+
+=== CELDA 8 (code) ===
+plt.figure(figsize=(12, 4))
+
+# Grafica 1: Recompensa promedio por turno
+plt.subplot(1, 2, 1)
+for i, eps in enumerate(epsilons):
+    plt.plot(recompensas_acum[i], label=f'ε = {eps}')
+plt.legend()
+plt.grid(True)
+plt.xlabel('Turnos (cavadas)')
+plt.ylabel('Recompensa promedio')
+plt.title('ε-greedy: Recompensa promedio')
+
+# Grafica 2: Proporcion de veces que eligio la mejor casilla
+plt.subplot(1, 2, 2)
+for i, eps in enumerate(epsilons):
+    plt.plot(optimas_acum[i], label=f'ε = {eps}')
+plt.legend()
+plt.grid(True)
+plt.xlabel('Turnos (cavadas)')
+plt.ylabel('Proporción acción óptima')
+plt.title('ε-greedy: ¿Eligió la mejor casilla?')
+
+plt.tight_layout()
+plt.show()
+
+=== CELDA 9 (markdown) ===
+**Interpretación:**
+- ε = 0 (greedy puro): se queda con la primera casilla buena que encuentra, nunca explora otras
+- ε = 0.05 o 0.1: buen balance, encuentra la mejor casilla con el tiempo
+- ε = 0.2: explora demasiado, desperdicia turnos en casillas malas
+
+=== CELDA 10 (markdown) ===
+---
+## 4. Selección de acciones con intervalo de confianza (UCB)
+
+**¿Qué es UCB?**
+
+El método UCB (Upper Confidence Bound) selecciona la acción que maximiza:
+
+$$A_t = \underset{a}{\arg\max} \left[ Q_t(a) + c \sqrt{\frac{\ln t}{N_t(a)}} \right]$$
+
+**Componentes:**
+- $Q_t(a)$: valor estimado de la casilla $a$ (explotación)
+- $c \sqrt{\frac{\ln t}{N_t(a)}}$: "bonificación" por exploración
+  - $c$: constante que controla cuánto explorar
+  - $\ln t$: logaritmo del turno actual
+  - $N_t(a)$: número de veces que cavamos en la casilla $a$
+
+**¿Por qué funciona?**
+- Si una casilla tiene pocas visitas ($N_t(a)$ pequeño), la bonificación es grande → el agente **explora**
+- Si una casilla tiene muchas visitas ($N_t(a)$ grande), la bonificación es pequeña → el agente **explota** lo que sabe
+- A diferencia de ε-greedy (que explora al azar), UCB explora de forma **inteligente**: prioriza casillas con alta incertidumbre
+
+**Estados:** Cada casilla del tablero es un estado único. El agente aprende el valor Q de cada una.
+
+**Política:** UCB determina qué casilla cavar basándose en el valor estimado + la incertidumbre.
+
+=== CELDA 11 (code) ===
+# Experimento UCB: comparamos diferentes valores de c
+partidas = 500
+turnos = 200
+valores_c = [0.5, 1.0, 2.0]  # diferentes niveles de exploracion
+
+# Vamos a comparar UCB vs ε-greedy
+nombres_ucb = [f'UCB (c={c})' for c in valores_c] + ['ε-greedy (ε=0.1)']
+recompensas_ucb = np.zeros((len(nombres_ucb), turnos))
+optimas_ucb = np.zeros((len(nombres_ucb), turnos))
+
+for partida in range(partidas):
+    # --- UCB con diferentes valores de c ---
+    for i, c in enumerate(valores_c):
+        Q = {k: 0 for k in range(NUM_CASILLAS)}
+        N = {k: 0 for k in range(NUM_CASILLAS)}
+
+        for turno in range(turnos):
+            # --- SELECCION UCB ---
+            # UCB = Q[casilla] + c * sqrt(ln(turno+1) / N[casilla])
+            # Para casillas no visitadas (N=0), la bonificacion es infinita
+            # asi que el agente las prueba al menos una vez
+            mejor_valor = -1e9
+            for j in range(NUM_CASILLAS):
+                if N[j] == 0:
+                    # Casilla nunca visitada: tiene prioridad maxima
+                    valor_ucb = 1e9
+                else:
+                    # Formula UCB: valor estimado + bonificacion de exploracion
+                    bonificacion = c * math.sqrt(math.log(turno + 1) / N[j])
+                    valor_ucb = Q[j] + bonificacion
+
+                if valor_ucb > mejor_valor:
+                    mejor_valor = valor_ucb
+                    casilla = j
+
+            # Cavar en la casilla seleccionada
+            N[casilla] += 1
+            recompensa = 1 if np.random.uniform() < probabilidades_reales[casilla] else 0
+
+            # Actualizar Q (promedio incremental)
+            Q[casilla] += (recompensa - Q[casilla]) / N[casilla]
+
+            recompensas_ucb[i][turno] += recompensa
+            optimas_ucb[i][turno] += (1 if casilla == mejor_casilla else 0)
+
+    # --- ε-greedy (referencia) ---
+    Q = {k: 0 for k in range(NUM_CASILLAS)}
+    N = {k: 0 for k in range(NUM_CASILLAS)}
+    eps = 0.1
+    for turno in range(turnos):
+        if np.random.uniform(0, 1) < eps:
+            casilla = np.random.randint(NUM_CASILLAS)
+        else:
+            max_q = -1e9
+            for j in range(NUM_CASILLAS):
+                if Q[j] > max_q:
+                    max_q = Q[j]
+                    casilla = j
+        N[casilla] += 1
+        recompensa = 1 if np.random.uniform() < probabilidades_reales[casilla] else 0
+        Q[casilla] += (recompensa - Q[casilla]) / N[casilla]
+        recompensas_ucb[len(valores_c)][turno] += recompensa
+        optimas_ucb[len(valores_c)][turno] += (1 if casilla == mejor_casilla else 0)
+
+recompensas_ucb /= partidas
+optimas_ucb /= partidas
+
+print("Experimento UCB completado.")
+
+=== CELDA 12 (code) ===
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 2, 1)
+for i, nombre in enumerate(nombres_ucb):
+    plt.plot(recompensas_ucb[i], label=nombre)
+plt.legend()
+plt.grid(True)
+plt.xlabel('Turnos (cavadas)')
+plt.ylabel('Recompensa promedio')
+plt.title('UCB: Recompensa promedio')
+
+plt.subplot(1, 2, 2)
+for i, nombre in enumerate(nombres_ucb):
+    plt.plot(optimas_ucb[i], label=nombre)
+plt.legend()
+plt.grid(True)
+plt.xlabel('Turnos (cavadas)')
+plt.ylabel('Proporción acción óptima')
+plt.title('UCB: ¿Eligió la mejor casilla?')
+
+plt.tight_layout()
+plt.show()
+
+=== CELDA 13 (markdown) ===
+**Interpretación UCB:**
+- UCB con c=1.0 explora de forma más inteligente que ε-greedy
+- La bonificación $c\sqrt{\ln(t)/N(a)}$ asegura que cada casilla se explore un número adecuado de veces
+- UCB tiende a encontrar la mejor casilla más rápido que ε-greedy porque no desperdicia exploración en malas casillas
+
+=== CELDA 14 (markdown) ===
+---
+## 5. Algoritmo del Gradiente (Softmax)
+
+**¿Qué es el algoritmo de Gradiente?**
+
+En lugar de estimar valores Q, este método asigna **preferencias** $H(a)$ a cada acción y las convierte en probabilidades con **softmax**:
+
+$$\pi_t(a) = \frac{e^{H_t(a)}}{\sum_{b=1}^k e^{H_t(b)}}$$
+
+Donde $\pi_t(a)$ es la probabilidad de elegir la casilla $a$ en el turno $t$.
+
+**Actualización de preferencias:**
+
+$$H_{t+1}(a) = H_t(a) + \alpha(R_t - \bar{R}_t)(1 - \pi_t(a)) \quad \text{(si se eligió a)}$$
+$$H_{t+1}(b) = H_t(b) - \alpha(R_t - \bar{R}_t)\pi_t(b) \quad \text{(para toda b ≠ a)}$$
+
+Donde:
+- $\alpha$: tasa de aprendizaje
+- $R_t$: recompensa obtenida (1 o 0)
+- $\bar{R}_t$: promedio de todas las recompensas hasta el turno $t$ (línea base)
+
+**¿Por qué funciona?**
+- Si la recompensa $R_t$ es **mayor** que el promedio $\bar{R}_t$: aumenta la preferencia de esa acción
+- Si la recompensa $R_t$ es **menor** que el promedio: disminuye la preferencia
+- Las acciones no elegidas se actualizan en dirección opuesta
+- Con el tiempo, las buenas acciones tienen mayor probabilidad de ser elegidas
+
+=== CELDA 15 (code) ===
+def softmax(x):
+    # Convierte un vector de preferencias en probabilidades
+    # Formula: softmax(x_i) = exp(x_i) / sum(exp(x_j))
+    return np.exp(x) / sum(np.exp(x))
+
+=== CELDA 16 (code) ===
+partidas = 500
+turnos = 200
+alphas_grad = [0.05, 0.1, 0.3]  # diferentes tasas de aprendizaje
+
+nombres_grad = [f'Gradiente (α={a})' for a in alphas_grad] + ['ε-greedy (ε=0.1)']
+recompensas_grad = np.zeros((len(nombres_grad), turnos))
+optimas_grad = np.zeros((len(nombres_grad), turnos))
+
+for partida in range(partidas):
+    for i, alfa in enumerate(alphas_grad):
+        # Inicializamos preferencias H[casilla] = 0 para todas
+        # Con softmax, H=0 significa probabilidad uniforme = 1/25
+        H = np.zeros(NUM_CASILLAS)
+        recompensas_historial = []  # guardamos todas las recompensas para calcular promedio
+
+        for turno in range(turnos):
+            # --- PASO 1: CALCULAR PROBABILIDADES CON SOFTMAX ---
+            probabilidades = softmax(H)
+
+            # --- PASO 2: ELEGIR CASILLA SEGUN LA DISTRIBUCION ---
+            # Las acciones con mayor preferencia tienen mayor probabilidad de ser elegidas
+            casilla = np.random.choice(NUM_CASILLAS, p=probabilidades)
+
+            # --- PASO 3: CAVAR Y OBTENER RECOMPENSA ---
+            recompensa = 1 if np.random.uniform() < probabilidades_reales[casilla] else 0
+            recompensas_historial.append(recompensa)
+            recompensa_promedio = np.mean(recompensas_historial)
+
+            # --- PASO 4: ACTUALIZAR PREFERENCIAS POR GRADIENTE ---
+            # Si la recompensa es mayor al promedio: aumentar preferencia de esta accion
+            # Si la recompensa es menor al promedio: disminuir preferencia
+            for j in range(NUM_CASILLAS):
+                if j == casilla:
+                    # Accion elegida: aumentar su preferencia
+                    H[j] += alfa * (recompensa - recompensa_promedio) * (1 - probabilidades[j])
+                else:
+                    # Acciones no elegidas: disminuir su preferencia
+                    H[j] -= alfa * (recompensa - recompensa_promedio) * probabilidades[j]
+
+            recompensas_grad[i][turno] += recompensa
+            optimas_grad[i][turno] += (1 if casilla == mejor_casilla else 0)
+
+    # --- ε-greedy (referencia) ---
+    Q = {k: 0 for k in range(NUM_CASILLAS)}
+    N = {k: 0 for k in range(NUM_CASILLAS)}
+    eps = 0.1
+    for turno in range(turnos):
+        if np.random.uniform(0, 1) < eps:
+            casilla = np.random.randint(NUM_CASILLAS)
+        else:
+            max_q = -1e9
+            for j in range(NUM_CASILLAS):
+                if Q[j] > max_q:
+                    max_q = Q[j]
+                    casilla = j
+        N[casilla] += 1
+        recompensa = 1 if np.random.uniform() < probabilidades_reales[casilla] else 0
+        Q[casilla] += (recompensa - Q[casilla]) / N[casilla]
+        recompensas_grad[len(alphas_grad)][turno] += recompensa
+        optimas_grad[len(alphas_grad)][turno] += (1 if casilla == mejor_casilla else 0)
+
+recompensas_grad /= partidas
+optimas_grad /= partidas
+
+print("Experimento Gradiente (Softmax) completado.")
+
+=== CELDA 17 (code) ===
+plt.figure(figsize=(12, 4))
+
+plt.subplot(1, 2, 1)
+for i, nombre in enumerate(nombres_grad):
+    plt.plot(recompensas_grad[i], label=nombre)
+plt.legend()
+plt.grid(True)
+plt.xlabel('Turnos (cavadas)')
+plt.ylabel('Recompensa promedio')
+plt.title('Gradiente (Softmax): Recompensa promedio')
+
+plt.subplot(1, 2, 2)
+for i, nombre in enumerate(nombres_grad):
+    plt.plot(optimas_grad[i], label=nombre)
+plt.legend()
+plt.grid(True)
+plt.xlabel('Turnos (cavadas)')
+plt.ylabel('Proporción acción óptima')
+plt.title('Gradiente (Softmax): ¿Eligió la mejor casilla?')
+
+plt.tight_layout()
+plt.show()
+
+=== CELDA 18 (markdown) ===
+**Interpretación Gradiente:**
+- Con α = 0.1 el gradiente converge bien, encontrando la mejor casilla
+- α muy alto (0.3) puede ser inestable (cambia las preferencias demasiado rápido)
+- α muy bajo (0.05) aprende muy lento
+- La exploración es natural: al principio todas las casillas tienen igual probabilidad, luego las buenas se vuelven más probables
+
+=== CELDA 19 (markdown) ===
+---
+## 6. Comparación final: ε-greedy vs UCB vs Gradiente
+
+Comparamos los tres métodos con sus mejores hiperparámetros lado a lado.
+
+=== CELDA 20 (code) ===
+partidas = 500
+turnos = 200
+
+metodos = ['ε-greedy (ε=0.1)', 'UCB (c=1.0)', 'Gradiente (α=0.1)']
+recompensas_final = np.zeros((len(metodos), turnos))
+optimas_final = np.zeros((len(metodos), turnos))
+
+for partida in range(partidas):
+    # --- ε-greedy ---
+    Q = {k: 0 for k in range(NUM_CASILLAS)}
+    N = {k: 0 for k in range(NUM_CASILLAS)}
+    for turno in range(turnos):
+        if np.random.uniform() < 0.1:
+            casilla = np.random.randint(NUM_CASILLAS)
+        else:
+            max_q = -1e9
+            for j in range(NUM_CASILLAS):
+                if Q[j] > max_q:
+                    max_q = Q[j]
+                    casilla = j
+        N[casilla] += 1
+        r = 1 if np.random.uniform() < probabilidades_reales[casilla] else 0
+        Q[casilla] += (r - Q[casilla]) / N[casilla]
+        recompensas_final[0][turno] += r
+        optimas_final[0][turno] += (1 if casilla == mejor_casilla else 0)
+
+    # --- UCB ---
+    Q = {k: 0 for k in range(NUM_CASILLAS)}
+    N = {k: 0 for k in range(NUM_CASILLAS)}
+    c = 1.0
+    for turno in range(turnos):
+        mejor_valor = -1e9
+        for j in range(NUM_CASILLAS):
+            if N[j] == 0:
+                valor_ucb = 1e9
+            else:
+                valor_ucb = Q[j] + c * math.sqrt(math.log(turno + 1) / N[j])
+            if valor_ucb > mejor_valor:
+                mejor_valor = valor_ucb
+                casilla = j
+        N[casilla] += 1
+        r = 1 if np.random.uniform() < probabilidades_reales[casilla] else 0
+        Q[casilla] += (r - Q[casilla]) / N[casilla]
+        recompensas_final[1][turno] += r
+        optimas_final[1][turno] += (1 if casilla == mejor_casilla else 0)
+
+    # --- Gradiente ---
+    H = np.zeros(NUM_CASILLAS)
+    historial_r = []
+    for turno in range(turnos):
+        probs = softmax(H)
+        casilla = np.random.choice(NUM_CASILLAS, p=probs)
+        r = 1 if np.random.uniform() < probabilidades_reales[casilla] else 0
+        historial_r.append(r)
+        r_prom = np.mean(historial_r)
+        for j in range(NUM_CASILLAS):
+            if j == casilla:
+                H[j] += 0.1 * (r - r_prom) * (1 - probs[j])
+            else:
+                H[j] -= 0.1 * (r - r_prom) * probs[j]
+        recompensas_final[2][turno] += r
+        optimas_final[2][turno] += (1 if casilla == mejor_casilla else 0)
+
+recompensas_final /= partidas
+optimas_final /= partidas
+
+print("Comparación final completada.")
+
+=== CELDA 21 (code) ===
+plt.figure(figsize=(14, 4))
+
+plt.subplot(1, 3, 1)
+for i, m in enumerate(metodos):
+    plt.plot(recompensas_final[i], label=m)
+plt.legend()
+plt.grid(True)
+plt.xlabel('Turnos')
+plt.ylabel('Recompensa promedio')
+plt.title('Recompensa promedio')
+
+plt.subplot(1, 3, 2)
+for i, m in enumerate(metodos):
+    plt.plot(optimas_final[i], label=m)
+plt.legend()
+plt.grid(True)
+plt.xlabel('Turnos')
+plt.ylabel('Proporción óptima')
+plt.title('Acción óptima')
+
+plt.subplot(1, 3, 3)
+final_recomp = [recompensas_final[i][-1] for i in range(len(metodos))]
+final_opt = [optimas_final[i][-1] for i in range(len(metodos))]
+x = np.arange(len(metodos))
+ancho = 0.35
+plt.bar(x - ancho/2, final_recomp, ancho, label='Recompensa final')
+plt.bar(x + ancho/2, final_opt, ancho, label='% Óptima final')
+plt.xticks(x, metodos, rotation=15)
+plt.legend()
+plt.title('Comparación final')
+
+plt.tight_layout()
+plt.show()
+
+=== CELDA 22 (markdown) ===
+---
+## 7. Resumen
+
+### ¿Cómo explora y explota el agente?
+
+**Exploración (probar nuevas casillas):**
+- **ε-greedy**: con probabilidad ε, elige una casilla al **azar**. Simple pero no inteligente: puede explorar repetidamente casillas malas.
+- **UCB**: explora casillas con **alta incertidumbre** (pocas visitas) mediante la fórmula $c\sqrt{\ln(t)/N(a)}$. Más inteligente porque la exploración disminuye naturalmente con el tiempo.
+- **Gradiente**: explora de forma **probabilística**. Al principio todas las casillas tienen igual probabilidad; con el tiempo, las buenas casillas se vuelven más probables.
+
+**Explotación (cavar donde hay monedas):**
+- **ε-greedy**: elige la casilla con mayor valor Q conocido el 1-ε de las veces.
+- **UCB**: cuando la incertidumbre es baja (muchas visitas), la bonificación es pequeña y domina el valor Q.
+- **Gradiente**: las preferencias de las buenas casillas aumentan, haciéndolas más probables de ser elegidas.
+
+### Componentes del problema
+
+| Componente | Descripción |
+|---|---|
+| **Estado** | La identidad de cada casilla (0 a 24). Cada casilla tiene una distribución de recompensa independiente. |
+| **Entorno** | Tablero 5×5. Cada casilla tiene una probabilidad fija $p_i$ de contener una moneda. |
+| **Política** | UCB o Gradiente: determina qué casilla cavar basándose en Q y el historial. |
+| **Recompensa** | $R = 1$ si hay moneda (con probabilidad $p_i$), $R = 0$ si no. |
+| **Función de valor** | $Q(a)$ = valor estimado de la casilla $a$ (proporción de veces que dio moneda). |
+
+### Resultados clave
+
+1. **ε-greedy** es simple pero desperdicia exploración en malas casillas.
+2. **UCB** explora de forma más inteligente: prioriza casillas con alta incertidumbre.
+3. **Gradiente** ofrece una exploración probabilística natural con softmax.
+4. Para este problema, **UCB y Gradiente** superan a ε-greedy porque no malgastan turnos explorando al azar.
+

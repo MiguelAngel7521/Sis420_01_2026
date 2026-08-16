@@ -1,0 +1,9 @@
+Leyendo el notebook de "C:\MIguel\IA\Teoricas\machine learning\machine learning\07 aprendizaje por refuerzo\01_introduccion.ipynb"
+
+
+y crees el agente de según la lógica de programación de ese notebook y con comentarios de code para ver lo que haz hecho porfa, primero lee el notebook y crea el agente porfa
+
+se debe identificar y explicar: Los estados, el entorno, la política, recompensa y la función de acción. Para el proceso de exploración y explotación se debe aplicar una de las siguientes estrategias: "Selección de acciones con intervalo de confianza" ó "Algoritmo del gradiente". del notebook "C:\MIguel\IA\Teoricas\machine learning\machine learning\07 aprendizaje por refuerzo\02_bandits.ipynb"
+con la misma lógica porfa que comience con los ciclos for y eso quiero que lo hagas aunque haya redundancia con las clases que ya creaste del notebbok de intruccion, toma de refencia este notebook porfa "C:\MIguel\IA\Parciales\Segundo Parcial\rompecabezas_8-puzzle.ipynb"
+
+asi quiero que lo hagas, este problema hazlo porfa Juego de monedas ocultas: Diseña un agente que encuentre monedas escondidas en un tablero. Explica cómo explora nuevas casillas y explota lugares donde antes encontró monedas.

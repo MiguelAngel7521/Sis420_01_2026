@@ -1,0 +1,334 @@
+[1mdiff --git a/Parciales/Segundo Parcial/explicacion_monedas_ocultas.txt b/Parciales/Segundo Parcial/explicacion_monedas_ocultas.txt[m
+[1mindex c62fca3..0d53842 100644[m
+[1m--- a/Parciales/Segundo Parcial/explicacion_monedas_ocultas.txt[m	
+[1m+++ b/Parciales/Segundo Parcial/explicacion_monedas_ocultas.txt[m	
+[36m@@ -10,197 +10,56 @@[m [mdebe balancear dos estrategias:[m
+ El objetivo es maximizar la cantidad de monedas encontradas.[m
+ [m
+ [m
+[31m-=============================================================================[m
+[31m- 2. ESTADOS[m
+[31m-=============================================================================[m
+[31m-[m
+[31m-Definicion: Un estado representa una situacion especifica en la que el[m
+[31m-agente puede encontrarse.[m
+[31m-[m
+[31m-En este problema:[m
+[31m-  - Cada CASILLA del tablero es un ESTADO.[m
+[32m+[m[32mESTADOS[m[41m [m
+   - Hay 25 estados (casilla 0, casilla 1, ..., casilla 24).[m
+[31m-  - El agente "esta" en el sentido de que elige una casilla para cavar.[m
+[31m-  - Cada estado tiene su propia distribucion de recompensa (probabilidad[m
+[31m-    de tener moneda).[m
+[31m-[m
+[31m-Ejemplo:[m
+[31m-  - Estado 0: casilla en fila 0, columna 0[m
+[31m-  - Estado 12: casilla en fila 2, columna 2[m
+[31m-  - Estado 24: casilla en fila 4, columna 4[m
+ [m
+ Diferenciacion de estados: cada casilla es independiente. Saber que hay[m
+ moneda en la casilla 5 no da informacion sobre la casilla 6.[m
+ [m
+[31m-Codigo:[m
+[31m-  NUM_CASILLAS = 25[m
+[31m-  probabilidades_reales[c] = probabilidad de que la casilla c tenga moneda[m
+[31m-[m
+ [m
+[31m-=============================================================================[m
+[31m- 3. ENTORNO[m
+[31m-=============================================================================[m
+ [m
+[32m+[m[32mENTORNO[m
+ Definicion: El entorno es todo aquello con lo que el agente interactua.[m
+[32m+[m[32mEl entorno es el TABLERO de 5x5 con monedas ocultas.[m
+[32m+[m[32mEl tablero tiene 25 casillas, cada una con una probabilidad real p_i.[m
+ [m
+[31m-En este problema:[m
+[31m-  - El entorno es el TABLERO de 5x5 con monedas ocultas.[m
+[31m-  - El tablero tiene 25 casillas, cada una con una probabilidad real p_i.[m
+[31m-  - Cuando el agente "cava" en una casilla, el entorno devuelve:[m
+[31m-      +1 si hay moneda (con probabilidad p_i)[m
+[31m-       0 si no hay moneda (con probabilidad 1 - p_i)[m
+[31m-  - Las probabilidades p_i son FIJAS pero DESCONOCIDAS para el agente.[m
+[31m-  - El agente solo descubre el resultado despues de cavar.[m
+[31m-[m
+[31m-Codigo:[m
+[31m-  probabilidades_reales = np.random.uniform(0, 0.5, NUM_CASILLAS)[m
+[31m-  # Cada casilla tiene probabilidad entre 0% y 50% de tener moneda[m
+[31m-[m
+[31m-  La mejor casilla es la de mayor probabilidad:[m
+[31m-  mejor_casilla = np.argmax(probabilidades_reales)[m
+[31m-[m
+[31m-[m
+[31m-=============================================================================[m
+[31m- 4. ACCIONES[m
+[31m-=============================================================================[m
+ [m
+[32m+[m[32mACCIONES[m
+ Definicion: Una accion es algo que el agente puede hacer para afectar[m
+ el entorno.[m
+[31m-[m
+ En este problema:[m
+   - La unica accion disponible es: "CAVAR en una casilla".[m
+[31m-  - Hay 25 acciones posibles (una por cada casilla).[m
+[31m-  - En cada turno, el agente elige UNA casilla para cavar.[m
+[31m-[m
+[31m-Accion optima: cavar en la casilla con mayor probabilidad real de[m
+[31m-tener moneda (pero el agente no sabe cual es).[m
+[31m-[m
+[31m-[m
+[31m-=============================================================================[m
+[31m- 5. POLITICA[m
+[31m-=============================================================================[m
+[31m-[m
+[31m-Definicion: La politica es la estrategia que usa el agente para decidir[m
+[31m-que accion tomar en cada estado. Mapea estados -> acciones.[m
+[31m-[m
+[31m-En este notebook se implementan TRES politicas diferentes:[m
+[31m-[m
+[31m-  5.1. POLITICA ε-GREEDY[m
+[31m-  ------------------------[m
+[31m-  - Con probabilidad ε (epsilon): elegir una casilla al AZAR (explorar)[m
+[31m-  - Con probabilidad 1-ε: elegir la casilla con MAYOR valor Q (explotar)[m
+[31m-[m
+[31m-  Pseudocodigo:[m
+[31m-    if random() < epsilon:[m
+[31m-        casilla = elegir_al_azar()[m
+[31m-    else:[m
+[31m-        casilla = argmax(Q)[m
+[31m-[m
+[31m-  ε controla el balance exploracion/explotacion:[m
+[31m-    ε = 0  -> siempre explota (nunca explora)[m
+[31m-    ε = 0.1 -> 10% explora, 90% explota[m
+[31m-    ε = 0.2 -> 20% explora, 80% explota[m
+[31m-[m
+[31m-  El notebook prueba: ε = [0, 0.05, 0.1, 0.2][m
+[31m-[m
+[31m-  5.2. POLITICA UCB (Upper Confidence Bound)[m
+[31m-  -------------------------------------------[m
+[31m-  Formula:[m
+[31m-      A_t = argmax [ Q(a) + c * sqrt( ln(t) / N(a) ) ][m
+[31m-[m
+[31m-  Donde:[m
+[31m-    - Q(a)  = valor estimado de la casilla a (explotacion)[m
+[31m-    - c     = constante que controla cuanta exploracion hacer[m
+[31m-    - ln(t) = logaritmo natural del turno actual[m
+[31m-    - N(a)  = numero de veces que se ha cavado en la casilla a[m
+[31m-[m
+[31m-  Explicacion:[m
+[31m-    - Si N(a) es pequeño (pocas visitas): la bonificacion es GRANDE[m
+[31m-      -> el agente EXPLORA esa casilla[m
+[31m-    - Si N(a) es grande (muchas visitas): la bonificacion es PEQUENA[m
+[31m-      -> el agente EXPLOTA lo que sabe de esa casilla[m
+[31m-    - Las casillas NUNCA visitadas reciben valor infinito[m
+[31m-      -> el agente las prueba al menos una vez[m
+[31m-[m
+[31m-  Diferencias con ε-greedy:[m
+[31m-    - ε-greedy explora AL AZAR (puede explorar malas casillas repetido)[m
+[31m-    - UCB explora de forma INTELIGENTE (prioriza alta incertidumbre)[m
+[31m-    - UCB no necesita epsilon, usa el termino sqrt(ln(t)/N) en su lugar[m
+[31m-[m
+[31m-  El notebook prueba: c = [0.5, 1.0, 2.0][m
+[31m-[m
+[31m-  5.3. POLITICA DE GRADIENTE (SOFTMAX)[m
+[31m-  --------------------------------------[m
+[31m-  En lugar de estimar valores Q, asigna PREFERENCIAS H(a) a cada accion.[m
+[31m-[m
+[31m-  Las preferencias se convierten a probabilidades usando SOFTMAX:[m
+[31m-      pi(a) = exp(H(a)) / sum(exp(H(b)))[m
+ [m
+[31m-  Donde pi(a) es la probabilidad de elegir la casilla a.[m
+ [m
+[31m-  Actualizacion de preferencias (gradiente):[m
+[31m-    Si se eligio la accion a:[m
+[31m-        H(a) += alpha * (R - R_prom) * (1 - pi(a))[m
+[31m-    Para toda accion b != a:[m
+[31m-        H(b) -= alpha * (R - R_prom) * pi(b)[m
+[31m-[m
+[31m-  Donde:[m
+[31m-    - alpha  = tasa de aprendizaje[m
+[31m-    - R      = recompensa obtenida (1 o 0)[m
+[31m-    - R_prom = promedio historico de todas las recompensas[m
+[31m-    - pi(a)  = probabilidad de elegir la accion a[m
+[31m-[m
+[31m-  Explicacion:[m
+[31m-    - Si R > R_prom (la recompensa fue mejor que el promedio):[m
+[31m-        -> AUMENTA la preferencia de la accion elegida[m
+[31m-        -> DISMINUYE la preferencia de las demas[m
+[31m-    - Si R < R_prom (la recompensa fue peor que el promedio):[m
+[31m-        -> DISMINUYE la preferencia de la accion elegida[m
+[31m-        -> AUMENTA la preferencia de las demas[m
+[31m-    - Con el tiempo, las buenas acciones se vuelven mas probables[m
+[31m-[m
+[31m-  El notebook prueba: alpha = [0.05, 0.1, 0.3][m
+[32m+[m[32mPOLITICA[m
+[32m+[m[32mPOLITICA DE GRADIENTE[m
+[32m+[m[32m  El notebook prueba: alpha = [0.1,0.4][m
+ [m
+ [m
+[31m-=============================================================================[m
+[31m- 6. RECOMPENSA[m
+[31m-=============================================================================[m
+[32m+[m[32mRECOMPENSA[m
+ [m
+ Definicion: La recompensa es la senal numerica que el entorno envia al[m
+ agente para indicarle que tan bien lo esta haciendo.[m
+ [m
+[31m-En este problema:[m
+   - R = +1 si HAY moneda en la casilla donde cavo[m
+   - R = 0 si NO HAY moneda[m
+ [m
+[31m-  La recompensa es INMEDIATA (se recibe justo despues de cavar).[m
+[31m-[m
+[31m-  Objetivo del agente: MAXIMIZAR la recompensa acumulada a lo largo[m
+[31m-  del tiempo (encontrar la mayor cantidad de monedas posible).[m
+[31m-[m
+[31m-  Nota: Como las probabilidades son FIJAS, la maxima recompensa esperada[m
+[31m-  a largo plazo se obtiene cavando SIEMPRE en la mejor casilla.[m
+[31m-[m
+ [m
+[31m-=============================================================================[m
+[31m- 7. FUNCION DE VALOR (Q)[m
+[31m-=============================================================================[m
+ [m
+[31m-Definicion: La funcion de valor Q(a) estima la recompensa esperada de[m
+[31m-tomar la accion a (cavar en la casilla a).[m
+[32m+[m[32mtabla Q[m
+ [m
+   Q(a) = estimacion de la probabilidad de encontrar moneda en casilla a[m
+ [m
+ Inicializacion:[m
+[31m-  - Todas las Q(a) comienzan en 0 (el agente no sabe nada).[m
+[32m+[m[32m  Todas las Q(a) comienzan en 0 (el agente no sabe nada).[m
+ [m
+ Actualizacion (promedio incremental):[m
+   Q(a) = Q(a) + (1/N(a)) * (R - Q(a))[m
+ [m
+   Donde:[m
+[31m-    - Q(a)  = valor actual estimado de la casilla a[m
+[31m-    - N(a)  = numero de veces que se ha cavado en la casilla a[m
+[31m-    - R     = recompensa obtenida (1 o 0)[m
+[32m+[m[32m    Q(a)  = valor actual estimado de la casilla a[m
+[32m+[m[32m    N(a)  = numero de veces que se ha cavado en la casilla a[m
+[32m+[m[32m    R     = recompensa obtenida (1 o 0)[m
+ [m
+   Esto es equivalente a hacer el promedio:[m
+     Q(a) = (suma de recompensas en casilla a) / N(a)[m
+[36m@@ -210,117 +69,3 @@[m [mActualizacion (promedio incremental):[m
+ Ejemplo:[m
+   Si se cava 10 veces en la casilla 5 y se obtienen 7 monedas:[m
+     Q(5) = 7/10 = 0.7 (estimacion de probabilidad)[m
+[31m-[m
+[31m-[m
+[31m-=============================================================================[m
+[31m- 8. ESTRUCTURA DEL EXPERIMENTO (for anidados)[m
+[31m-=============================================================================[m
+[31m-[m
+[31m-Siguiendo la logica del notebook 02_bandits.ipynb, la estructura[m
+[31m-para comparar metodos usa TRES bucles for anidados:[m
+[31m-[m
+[31m-  for partida in range(partidas):         # (1) EXPERIMENTOS INDEPENDIENTES[m
+[31m-      for i, metodo in enumerate(metodos): # (2) COMPARAR METODOS[m
+[31m-          for turno in range(turnos):      # (3) TURNOS DENTRO DE CADA UNO[m
+[31m-              # Elegir accion segun el metodo[m
+[31m-              # Cavar y obtener recompensa[m
+[31m-              # Actualizar Q[m
+[31m-[m
+[31m-  for partida in range(partidas):[m
+[31m-      - Cada "partida" es un entrenamiento COMPLETAMENTE NUEVO.[m
+[31m-      - Se reinician Q, N, H desde cero.[m
+[31m-      - Esto permite medir el comportamiento PROMEDIO del metodo[m
+[31m-        (elimina el efecto de la aleatoriedad inicial).[m
+[31m-      - En el notebook: partidas = 500[m
+[31m-[m
+[31m-  for i, metodo in enumerate(metodos):[m
+[31m-      - Para cada valor de epsilon (o c, o alpha) se ejecuta[m
+[31m-        una secuencia completa de turnos.[m
+[31m-      - Todos usan las MISMAS condiciones iniciales (mismo tablero).[m
+[31m-[m
+[31m-  for turno in range(turnos):[m
+[31m-      - Cada turno = una cavada en una casilla.[m
+[31m-      - Se repite 200 veces por cada configuracion.[m
+[31m-      - En cada turno: elegir casilla -> cavar -> actualizar Q[m
+[31m-[m
+[31m-Resultados:[m
+[31m-  - Se guarda la RECOMPENSA PROMEDIO por turno (promediada sobre las 500[m
+[31m-    partidas)[m
+[31m-  - Se guarda la PROPORCION DE ACCION OPTIMA (eligio la mejor casilla?)[m
+[31m-  - Al final se dividen los acumulados entre el numero de partidas.[m
+[31m-[m
+[31m-[m
+[31m-=============================================================================[m
+[31m- 9. GRAFICAS Y ANALISIS[m
+[31m-=============================================================================[m
+[31m-[m
+[31m-Cada experimento genera dos graficas:[m
+[31m-[m
+[31m-  GRAFICA 1: Recompensa promedio por turno[m
+[31m-  - Eje X: numero de turnos (cavadas)[m
+[31m-  - Eje Y: recompensa promedio (entre 0 y 1)[m
+[31m-  - Interpretacion:[m
+[31m-      * Curva mas alta = mejor rendimiento[m
+[31m-      * Curva que sube = el agente esta aprendiendo[m
+[31m-      * Curva plana = el agente se estanco[m
+[31m-[m
+[31m-  GRAFICA 2: Proporcion de accion optima[m
+[31m-  - Eje X: numero de turnos[m
+[31m-  - Eje Y: frecuencia con la que eligio la mejor casilla[m
+[31m-  - Interpretacion:[m
+[31m-      * 1.0 = siempre elige la mejor casilla[m
+[31m-      * 0.2 = solo elige la mejor casilla 20% de las veces[m
+[31m-      * Sube con el tiempo si el metodo aprende bien[m
+[31m-[m
+[31m-  GRAFICA FINAL (COMPARACION):[m
+[31m-  - Compara los tres metodos lado a lado con sus mejores parametros[m
+[31m-  - ε-greedy (ε=0.1) vs UCB (c=1.0) vs Gradiente (alpha=0.1)[m
+[31m-[m
+[31m-[m
+[31m-=============================================================================[m
+[31m- 10. RESUMEN DE RESULTADOS[m
+[31m-=============================================================================[m
+[31m-[m
+[31m-  Metodo        | Como explora              | Como explota[m
+[31m-  --------------+---------------------------+-------------------------------[m
+[31m-  ε-greedy      | Al azar con prob ε        | Elige la de mayor Q[m
+[31m-  UCB           | Bonif. c*sqrt(ln(t)/N)    | Q + bonif (si N es grande)[m
+[31m-  Gradiente     | Softmax sobre preferencias| Preferencias altas = mas prob[m
+[31m-[m
+[31m-  - ε=0 (greedy puro) se estanca, nunca descubre mejores casillas[m
+[31m-  - ε=0.05 o 0.1 dan buen balance exploracion/explotacion[m
+[31m-  - UCB con c=1.0 explora mejor que ε-greedy (mas inteligente)[m
+[31m-  - Gradiente con alpha=0.1 converge naturalmente[m
+[31m-  - UCB y Gradiente superan a ε-greedy porque no desperdician[m
+[31m-    exploracion en malas casillas[m
+[31m-[m
+[31m-[m
+[31m-=============================================================================[m
+[31m- 11. EXPLICACION DE LOS COMPONENTES RL (TABLA)[m
+[31m-=============================================================================[m
+[31m-[m
+[31m-  Componente      | Descripcion[m
+[31m-  ----------------+--------------------------------------------------------[m
+[31m-  ESTADO          | Identidad de la casilla (0 a 24). Cada casilla tiene[m
+[31m-                  | su propia distribucion de recompensa independiente.[m
+[31m-  -----------------+-------------------------------------------------------[m
+[31m-  ENTORNO         | Tablero 5x5 con 25 casillas. Cada casilla tiene una[m
+[31m-                  | probabilidad fija p_i de contener una moneda.[m
+[31m-  -----------------+-------------------------------------------------------[m
+[31m-  ACCION          | Cavar en una casilla especifica. Hay 25 acciones.[m
+[31m-  -----------------+-------------------------------------------------------[m
+[31m-  POLITICA        | ε-greedy, UCB o Gradiente: determina que casilla[m
+[31m-                  | cavar basandose en Q(a) y el historial de visitas.[m
+[31m-  -----------------+-------------------------------------------------------[m
+[31m-  RECOMPENSA      | R = 1 si hay moneda (con probabilidad p_i),[m
+[31m-                  | R = 0 si no hay moneda.[m
+[31m-  -----------------+-------------------------------------------------------[m
+[31m-  FUNCION DE VALOR| Q(a) = valor estimado de la casilla a. Es la[m
+[31m-                  | proporcion de veces que cavar en a dio moneda.[m
+[31m-  -----------------+-------------------------------------------------------[m
+[31m-  EXPLORACION     | Probar casillas nuevas o con alta incertidumbre para[m
+[31m-                  | descubrir mejores opciones.[m
+[31m-  -----------------+-------------------------------------------------------[m
+[31m-  EXPLOTACION     | Usar el conocimiento actual para maximizar la[m
+[31m-                  | recompensa inmediata (elegir la mejor casilla conocida).[m
+[31m-  -----------------+-------------------------------------------------------[m

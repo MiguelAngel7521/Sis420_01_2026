@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2026-06-08T22:55:59.216671-04:00 by 
+-->
+
+<Configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/Configuration.xsd">
+
+    <input>
+        <node-files value="D:\Universidad\1_2026\IA\Proyecto\TrafficLight-RL-Espanol\redes\sucre\Sucre-plain.nod.xml"/>
+        <edge-files value="D:\Universidad\1_2026\IA\Proyecto\TrafficLight-RL-Espanol\redes\sucre\Sucre-plain.edg.xml"/>
+        <connection-files value="D:\Universidad\1_2026\IA\Proyecto\TrafficLight-RL-Espanol\redes\sucre\Sucre-plain.con.xml"/>
+        <tllogic-files value="D:\Universidad\1_2026\IA\Proyecto\TrafficLight-RL-Espanol\redes\sucre\Sucre-plain.tll.xml"/>
+        <type-files value="D:\Universidad\1_2026\IA\Proyecto\TrafficLight-RL-Espanol\redes\sucre\Sucre-plain.typ.xml"/>
+    </input>
+
+</Configuration>

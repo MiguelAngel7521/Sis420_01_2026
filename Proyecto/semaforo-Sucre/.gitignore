@@ -1,0 +1,6 @@
+*.xml
+*.csv
+*.pyc
+__pycache__/
+modelos_entrenados/
+resultados/
